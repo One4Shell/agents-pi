@@ -104,11 +104,11 @@ export function cleanMultilineOutput(raw: string): string {
 				.replace(/^\s*[-–—]\s+/, "")
 				.replace(/^\s*\d+[\.\)]\s+/, "")
 				.trim()
-				.replace(WRAPPING_QUOTES_RE, "")
-				.trim()
 		)
 		.filter(Boolean)
 		.join("\n")
 		.replace(/\n{3,}/g, "\n\n")
+		.trim()
+		.replace(WRAPPING_QUOTES_RE, "")
 		.trim();
 }

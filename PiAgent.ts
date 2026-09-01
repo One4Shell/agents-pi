@@ -2,7 +2,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { resolveRuntime } from "./runtimes.ts";
 import type { PiAgentConfig, PiAgentResult, PiAgentState, PiJobSpec, PiRuntime } from "./types.ts";
-import { cleanModelOutput } from "./utils.ts";
+import { cleanMultilineOutput } from "./utils.ts";
 
 /** Callback di cambio stato (used da widget/job per aggiornare il progresso). */
 export type PiAgentStateListener = (state: PiAgentState, agent: PiAgent) => void;
@@ -99,7 +99,7 @@ export class PiAgent {
 				id: this.id,
 				label: this.label,
 				runtime: this.runtime,
-				output: cleanModelOutput(lastRaw),
+				output: cleanMultilineOutput(lastRaw),
 				rawOutput: lastRaw,
 				exitCode: lastExitCode,
 				state: "failed",
@@ -129,7 +129,7 @@ export class PiAgent {
 			id: this.id,
 			label: this.label,
 			runtime: this.runtime,
-			output: cleanModelOutput(lastRaw),
+			output: cleanMultilineOutput(lastRaw),
 			rawOutput: lastRaw,
 			exitCode: lastExitCode,
 			state: "done",
