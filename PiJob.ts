@@ -44,8 +44,9 @@ export class PiJob {
 	/**
 	 * Esegue tutti gli agenti in parallelo rispettando `maxConcurrent`.
 	 * Non lancia mai: gli agenti falliti riportano un risultato con `state: "failed"`.
+	 * Un eventuale `signal` viene propagato alle singole istanze (cancellazione).
 	 */
-	async runAll(): Promise<PiAgentResult[]> {
+	async runAll(signal?: AbortSignal): Promise<PiAgentResult[]> {
 		this.startedAt = Date.now();
 		this.widget?.reset();
 		this.agents = this.specs.map((spec) => {
@@ -68,7 +69,7 @@ export class PiJob {
 					running++;
 					const agent = this.agents[index]!;
 					agent
-						.run()
+						.run(signal)
 						.then((result) => {
 							results[index] = result;
 						})

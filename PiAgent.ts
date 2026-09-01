@@ -50,8 +50,10 @@ export class PiAgent {
 	 * Esegue l'istanza e attende il risultato. Non lancia mai: se il processo
 	 * termina con codice di uscita ≠ 0, o se l'output è vuoto (dopo un retry),
 	 * restituisce un risultato con `state: "failed"` ed `error` valorizzato.
+	 * Un eventuale `signal` interrompe il processo e riporta lo stato "failed"
+	 * con errore "Annullato" (nessun retry).
 	 */
-	async run(): Promise<PiAgentResult> {
+	async run(signal?: AbortSignal): Promise<PiAgentResult> {
 		const runtime = resolveRuntime(this.runtime);
 		const buildArgs = runtime.buildArgs;
 		const args = buildArgs(this.config.prompt, this.config);
@@ -64,15 +66,31 @@ export class PiAgent {
 		let lastExitCode = 0;
 		for (let attempt = 0; attempt < 2; attempt++) {
 			if (attempt > 0) this.setState("retry");
-			const res = await this.pi.exec(runtime.bin, args);
+			const res = await this.pi.exec(runtime.bin, args, { signal });
 			lastRaw = res.stdout ?? "";
 			lastStderr = res.stderr ?? "";
 			lastExitCode = res.code ?? 0;
+			if (signal?.aborted) break;
 			if (lastExitCode !== 0) break;
 			if (lastRaw.trim()) break;
 		}
 
 		const durationMs = Date.now() - startedAt;
+
+		if (signal?.aborted) {
+			this.setState("failed");
+			return {
+				id: this.id,
+				label: this.label,
+				runtime: this.runtime,
+				output: "",
+				rawOutput: lastRaw,
+				exitCode: lastExitCode,
+				state: "failed",
+				durationMs,
+				error: "Annullato",
+			};
+		}
 
 		if (lastExitCode !== 0) {
 			const error = lastStderr.trim() || lastRaw.trim() || `Processo terminato con codice ${lastExitCode}`;

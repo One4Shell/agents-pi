@@ -1,6 +1,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { PiJob } from "./PiJob.ts";
 import { PiProgressWidget } from "./PiProgressWidget.ts";
+import { registerAgentsTool } from "./tool.ts";
 import { fmtSec } from "./utils.ts";
 
 // Libreria riutilizzabile per avviare istanze di "pi coding agent" (e runtime
@@ -18,6 +19,9 @@ import { fmtSec } from "./utils.ts";
 //   widget.stop();
 
 export default function (pi: ExtensionAPI) {
+	// Tool LLM-callable: espone la libreria al modello come `agents_run`.
+	registerAgentsTool(pi);
+
 	// Comando demo: avvia alcune istanze di agente (pi/opencode) in parallelo.
 	// La libreria espone anche le classi riutilizzabili (importabili da altre
 	// estensioni o usate nei tuoi flussi).

@@ -6,7 +6,48 @@ widget di progresso a barre in stile htop.
 
 Espone le classi `PiAgent`, `PiJob` e `PiProgressWidget`, insieme a runtime e
 utilità di supporto, importabili da altre estensioni o usate nei tuoi flussi di
-comando/evento.
+comando/evento. Registra inoltre il tool **`agents_run`**, richiamabile
+direttamente dal modello (vedi "Tool per il modello").
+
+## Tool per il modello (`agents_run`)
+
+Oltre al comando demo, l'estensione registra un custom tool via
+`pi.registerTool()`: il modello può così lanciare istanze agente da solo,
+senza passare da un comando. Definito in `tool.ts`.
+
+### Parametri
+
+| Campo           | Tipo      | Descrizione                                                       |
+|-----------------|-----------|-------------------------------------------------------------------|
+| `tasks`         | `array`   | 1–8 task `{ label?, prompt, runtime?, model? }`.                   |
+| `maxConcurrent` | `integer` | Max istanze parallele, 1–4 (default 1).                            |
+
+Esempio di chiamata che il modello può fare:
+
+```json
+{
+  "tasks": [
+    { "label": "analisi", "prompt": "spiega il file X" },
+    { "label": "traduci", "prompt": "traduci Y", "runtime": "opencode" }
+  ],
+  "maxConcurrent": 2
+}
+```
+
+### Comportamento
+
+- Esegue i task con un `PiJob`; ogni task è un processo isolato.
+- In modalità TUI mostra il `PiProgressWidget` (barre htop) durante l'esecuzione;
+  in modalità `rpc`/`json`/`print` usa solo gli aggiornamenti testuali.
+- Progressi in streaming al modello via `onUpdate` ("2/5 finished, 1 running…").
+- La cancellazione (Esc) è propagata: `PiAgent.run(signal?)` e
+  `PiJob.runAll(signal?)` accettano un `AbortSignal` passato a `pi.exec`.
+- **Mai lancia**: i task falliti compaiono nel testo restituito come
+  `### [label] failed` con l'errore; gli output riusciti sono puliti
+  (`cleanMultilineOutput`) e troncati a 4 KB per task (con avviso).
+- Il testo finale riporta l'header `N/M succeeded · K failed · <tempo>`.
+- Rendering compatto in stile subagent: `✓/✗/⏳` per task, durata, espansione
+  con Ctrl+O.
 
 ## Comando demo
 
@@ -100,10 +141,11 @@ widget.stop();
 Singola istanza di un agente (`pi` / `opencode`). Esegue il processo in modo
 isolato e restituisce il risultato pulito.
 
-- `run(): Promise<PiAgentResult>` — esegue l'istanza e attende il risultato.
+- `run(signal?): Promise<PiAgentResult>` — esegue l'istanza e attende il risultato.
   **Non lancia mai**: con exit code ≠ 0 o output vuoto (dopo un retry) restituisce
   un risultato con `state: "failed"` ed `error` valorizzato. Ritenta fino a 2
-  volte se il processo esce con codice 0 ma output vuoto.
+  volte se il processo esce con codice 0 ma output vuoto. Con `signal` abortito
+  termina il processo e riporta `error: "Annullato"` (nessun retry).
 - `onState(listener): () => void` — registra un callback di cambio stato; restituisce
   una funzione per rimuoverlo.
 - `getState(): PiAgentState` — stato corrente.
@@ -114,9 +156,10 @@ concorrenza**.
 
 - `constructor(pi, specs, options?)` — `options.maxConcurrent` (default `1`) e
   `options.widget` (opzionale).
-- `runAll(): Promise<PiAgentResult[]>` — esegue tutti gli agenti rispettando
-  `maxConcurrent`. **Non lancia mai**: gli agenti falliti riportano
-  `state: "failed"`. Risolve con i risultati di tutte le istanze.
+- `runAll(signal?): Promise<PiAgentResult[]>` — esegue tutti gli agenti rispettando
+  `maxConcurrent`, propagando l'eventuale `signal` alle istanze. **Non lancia
+  mai**: gli agenti falliti riportano `state: "failed"`. Risolve con i risultati
+  di tutte le istanze.
 - `getAgents(): PiAgent[]` — le istanze create.
 - `elapsedMs(): number` — millisecondi trascorsi dall'avvio.
 
@@ -211,6 +254,9 @@ try {
 - Utilità: `stripAnsi`, `cleanModelOutput`, `cleanMultilineOutput`, `fmtSec`,
   `fmtClock`.
 
+Da `tool.ts` sono importabili anche `registerAgentsTool(pi)` (registrazione del
+tool, già chiamata da `index.ts`) e il tipo `AgentsRunDetails`.
+
 ## Note sul comportamento
 
 - **Mai lancia:** `run()` e `runAll()` non propagano eccezioni; i fallimenti sono
@@ -218,3 +264,6 @@ try {
 - L'output dei risultati è pulito da ANSI, blocchi di codice markdown e caratteri
   di controllo.
 - La barra del singolo agente è stimata (vedi `PiProgressWidget`).
+- `run(signal?)` / `runAll(signal?)` accettano un `AbortSignal` opzionale
+  (backward-compatible): all'abort il processo viene terminato e l'istanza
+  riporta `error: "Annullato"` senza retry.
