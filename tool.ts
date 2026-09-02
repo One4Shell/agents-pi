@@ -60,6 +60,12 @@ function isRunningState(state: PiAgentResult["state"]): boolean {
 	return state === "queued" || state === "running" || state === "retry";
 }
 
+/** Testo di output di un task: il JSON serializzato se valido, altrimenti pulito. */
+function taskOutputText(r: PiAgentResult): string {
+	if (r.json !== undefined) return JSON.stringify(r.json, null, 2);
+	return cleanMultilineOutput(r.rawOutput || r.output).trim();
+}
+
 /** Foto corrente del job come dettagli (per gli update parziali). */
 function snapshotDetails(job: PiJob, results: PiAgentResult[] | null, cancelled: boolean): AgentsRunDetails {
 	if (results) return { cancelled, elapsedMs: job.elapsedMs(), results };
@@ -156,7 +162,7 @@ export function registerAgentsTool(pi: ExtensionAPI): void {
 			const sections = results.map((r) => {
 				const duration = r.durationMs ? ` (${fmtSec(r.durationMs)})` : "";
 				if (r.state === "done") {
-					const out = cleanMultilineOutput(r.rawOutput || r.output).trim();
+					const out = taskOutputText(r);
 					return `### [${r.label}] ok${duration}\n${truncateText(out || "(no output)", PER_TASK_OUTPUT_CAP)}`;
 				}
 				return `### [${r.label}] failed${duration}\nError: ${r.error ?? `exit ${r.exitCode}`}`;
@@ -208,7 +214,7 @@ export function registerAgentsTool(pi: ExtensionAPI): void {
 				const duration = r.durationMs ? theme.fg("dim", ` ${fmtSec(r.durationMs)}`) : "";
 				text += `\n  ${rIcon} ${theme.fg("accent", r.label)}${theme.fg("muted", ` [${r.runtime}]`)}${duration}`;
 				if (expanded) {
-					const out = cleanMultilineOutput(r.rawOutput || r.output).trim();
+					const out = taskOutputText(r);
 					const body = r.state === "done" ? out || "(no output)" : `Error: ${r.error ?? `exit ${r.exitCode}`}`;
 					for (const line of body.split("\n").slice(0, 10)) text += `\n    ${theme.fg("toolOutput", line)}`;
 					if (body.split("\n").length > 10) text += `\n    ${theme.fg("muted", "...")}`;

@@ -93,6 +93,33 @@ export function cleanModelOutput(raw: string): string {
 		.trim();
 }
 
+/**
+ * Tenta di parsare l'output di un agente come JSON valido (solo oggetti `{...}`
+ * o array `[...]`, non primitive). Prova prima l'intero output pulito (ANSI e
+ * code fence rimossi); se non è JSON, estrae la sottostringa dal primo `{`/`[`
+ * all'ultimo `}`/`]` (JSON circondato da altro testo) e riprova.
+ * Ritorna il valore parsato oppure `null` se l'output non è JSON valido.
+ */
+export function parseJsonOutput(raw: string): object | unknown[] | null {
+	if (!raw) return null;
+	const cleaned = stripRawOutput(raw).trim();
+	const accept = (candidate: string): object | unknown[] | null => {
+		if (!candidate.trim()) return null;
+		try {
+			const value: unknown = JSON.parse(candidate);
+			return typeof value === "object" && value !== null ? (value as object | unknown[]) : null;
+		} catch {
+			return null;
+		}
+	};
+	const whole = accept(cleaned);
+	if (whole) return whole;
+	const starts = [cleaned.indexOf("{"), cleaned.indexOf("[")].filter((i) => i >= 0);
+	const end = Math.max(cleaned.lastIndexOf("}"), cleaned.lastIndexOf("]"));
+	if (starts.length === 0 || end < 0 || end <= Math.min(...starts)) return null;
+	return accept(cleaned.slice(Math.min(...starts), end + 1));
+}
+
 /** Pulisce l'output preservando i paragrafi (per esiti lunghi/multilinea). */
 export function cleanMultilineOutput(raw: string): string {
 	if (!raw) return "";

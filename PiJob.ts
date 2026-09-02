@@ -8,7 +8,8 @@ import type { PiAgentResult, PiJobSpec } from "./types.ts";
 export interface PiJobOptions {
 	/** Numero massimo di istanze eseguite contemporaneamente (default 1). */
 	maxConcurrent?: number;
-	/** Widget di progresso da aggiornare ad ogni transizione (opzionale). */
+	/** Widget di progresso da aggiornare ad ogni transizione (opzionale).
+	 * A ogni `runAll()` il suo limite LOAD viene sincronizzato con `maxConcurrent`. */
 	widget?: PiProgressWidget;
 }
 
@@ -49,6 +50,7 @@ export class PiJob {
 	async runAll(signal?: AbortSignal): Promise<PiAgentResult[]> {
 		this.startedAt = Date.now();
 		this.widget?.reset();
+		this.widget?.setMaxConcurrent(this.maxConcurrent);
 		this.agents = this.specs.map((spec) => {
 			const agent = new PiAgent(this.pi, spec);
 			agent.onState((state, a) => {

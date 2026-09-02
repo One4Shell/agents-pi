@@ -79,7 +79,7 @@ binari `pi` e `opencode` presenti nel PATH.
 // Dentro eventi/comandi di un'estensione
 import { PiAgent, PiJob, PiProgressWidget } from "./index.ts";
 
-const widget = new PiProgressWidget(ctx.ui, { maxConcurrent: 4 });
+const widget = new PiProgressWidget(ctx.ui);
 
 const job = new PiJob(pi, [
   { id: "a1", label: "analisi", config: { prompt: "spiega il file X" } },
@@ -157,7 +157,8 @@ concorrenza**.
 - `constructor(pi, specs, options?)` — `options.maxConcurrent` (default `1`) e
   `options.widget` (opzionale).
 - `runAll(signal?): Promise<PiAgentResult[]>` — esegue tutti gli agenti rispettando
-  `maxConcurrent`, propagando l'eventuale `signal` alle istanze. **Non lancia
+  `maxConcurrent`, propagando l'eventuale `signal` alle istanze e sincronizzando
+  il limite LOAD del widget con `maxConcurrent`. **Non lancia
   mai**: gli agenti falliti riportano `state: "failed"`. Risolve con i risultati
   di tutte le istanze.
 - `getAgents(): PiAgent[]` — le istanze create.
@@ -170,6 +171,8 @@ htop). Si attiva al primo `register()` e si rimuove con `stop()`.
 - `register(id, label)` — registra un agente (in coda) e attiva il widget.
 - `update(id, state)` — aggiorna lo stato di un agente.
 - `reset()` — svuota gli agenti registrati.
+- `setMaxConcurrent(n)` — imposta il limite di concorrenza del meter LOAD
+  (chiamato automaticamente da `PiJob.runAll()`).
 - `finish()` — segnala la fine (lascia il widget col riepilogo).
 - `stop()` — rimuove widget e status bar.
 - `counts()` — `{ total, done, failed, running }`.
@@ -187,7 +190,7 @@ Opzioni del costruttore (`PiProgressWidgetOptions`):
 | `id`            | `"pi-agents"`  | Identificatore del widget.                     |
 | `title`         | `"AGENTI"`     | Titolo nell'header.                            |
 | `subtitle`      | `"istanze in parallelo"` | Sottotitolo accanto al titolo.       |
-| `maxConcurrent` | `1`            | Max istanze parallele (per il meter LOAD).     |
+| `maxConcurrent` | `1`            | Max istanze parallele (per il meter LOAD); sovrascritto da `PiJob` a ogni run. |
 
 ### Runtime
 
@@ -221,7 +224,7 @@ Job con runtime misti e gestione dei risultati:
 import { PiJob, PiProgressWidget } from "./index.ts";
 import { fmtSec } from "./utils.ts";
 
-const widget = new PiProgressWidget(ctx.ui, { maxConcurrent: 3, title: "AGENTI" });
+const widget = new PiProgressWidget(ctx.ui, { title: "AGENTI" });
 const job = new PiJob(pi, [
   { id: "a1", label: "analisi",  config: { prompt: "spiega il file X" } },
   { id: "a2", label: "traduci",  config: { prompt: "traduci Y", runtime: "opencode" } },

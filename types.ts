@@ -33,6 +33,8 @@ export interface PiAgentResult {
 	runtime: PiRuntime;
 	/** Output pulito (ANSI/markdown rimossi). */
 	output: string;
+	/** JSON già parsato, presente solo se l'output è un oggetto/array JSON valido. */
+	json?: unknown;
 	/** Uscita grezza dal processo. */
 	rawOutput: string;
 	exitCode: number;

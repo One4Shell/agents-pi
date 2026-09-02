@@ -10,7 +10,7 @@ import { fmtSec } from "./utils.ts";
 //
 // Uso rapido (dentro eventi/comandi di un'estensione):
 //   import { PiAgent, PiJob, PiProgressWidget } from "./index.ts";
-//   const widget = new PiProgressWidget(ctx.ui, { maxConcurrent: 4 });
+//   const widget = new PiProgressWidget(ctx.ui);
 //   const job = new PiJob(pi, [
 //     { id: "a1", label: "analisi", config: { prompt: "spiega il file X" } },
 //     { id: "a2", label: "traduci", config: { prompt: "traduci Y", runtime: "opencode" } },
@@ -31,7 +31,7 @@ export default function (pi: ExtensionAPI) {
 			const prompt = await ctx.ui.input("Richiesta per l'agente: spiega cos'è questo comando");
 			if (!prompt) return;
 
-			const widget = new PiProgressWidget(ctx.ui, { maxConcurrent: 2, title: "DEMO", subtitle: "istanze demo" });
+			const widget = new PiProgressWidget(ctx.ui, { title: "DEMO", subtitle: "istanze demo" });
 			const job = new PiJob(pi, [
 				{ id: "a1", label: "analisi", config: { prompt, runtime: "pi" } },
 				{ id: "a2", label: "traduci", config: { prompt, runtime: "pi" } },
@@ -78,4 +78,4 @@ export { piRuntime, opencodeRuntime, runtimes, resolveRuntime } from "./runtimes
 export type { AgentRuntime, PiAgentConfig, PiAgentResult, PiAgentState, PiJobSpec, PiRuntime } from "./types.ts";
 
 // ── Utilità di supporto ─────────────────────────────────────────────────────
-export { stripAnsi, cleanModelOutput, cleanMultilineOutput, fmtSec, fmtClock } from "./utils.ts";
+export { stripAnsi, cleanModelOutput, cleanMultilineOutput, parseJsonOutput, fmtSec, fmtClock } from "./utils.ts";

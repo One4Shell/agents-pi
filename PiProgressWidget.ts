@@ -111,6 +111,12 @@ export class PiProgressWidget {
 		this.tasks = [];
 	}
 
+	/** Imposta il limite di concorrenza del meter LOAD (usato da PiJob per sincronizzarlo). */
+	setMaxConcurrent(n: number): void {
+		this.maxConcurrent = Math.max(1, Math.floor(n) || 1);
+		this.render();
+	}
+
 	/** Segnala la fine delle esecuzioni (lascia il widget visibile col riepilogo). */
 	finish(): void {
 		this.render();
