@@ -16,7 +16,7 @@ set -uo pipefail
 # ----------------------------------------------------------------------------
 # Valori di default (sovrascrivibili da variabili d'ambiente o flag CLI)
 # ----------------------------------------------------------------------------
-MODEL="${OPENAI_MODEL:-gemma-4-12b-it}"
+MODEL="${OPENAI_MODEL:-google/gemma-4-e4b}"
 BASE_URL="${OPENAI_BASE_URL:-http://localhost:1234/v1}"
 API_KEY="${OPENAI_API_KEY:-test}"
 SYSTEM_PROMPT=""
