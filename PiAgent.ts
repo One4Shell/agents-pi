@@ -8,7 +8,7 @@ import { cleanMultilineOutput, parseJsonOutput } from "./utils.ts";
 export type PiAgentStateListener = (state: PiAgentState, agent: PiAgent) => void;
 
 /**
- * Istanza singola di un agente (pi / opencode). Esegue il processo in modo
+ * Istanza singola di un agente (agente-ai / pi / opencode). Esegue il processo in modo
  * isolato e ne restituisce il risultato pulito.
  */
 export class PiAgent {
@@ -27,7 +27,7 @@ export class PiAgent {
 		this.id = spec.id;
 		this.label = spec.label;
 		this.config = spec.config;
-		this.runtime = spec.config.runtime ?? "pi";
+		this.runtime = spec.config.runtime ?? "agente-ai";
 	}
 
 	getState(): PiAgentState {

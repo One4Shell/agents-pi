@@ -1,7 +1,10 @@
 // Definizioni dei runtime (come costruire il comando di una query).
 import type { AgentRuntime, PiAgentConfig, PiRuntime } from "./types.ts";
 
-/** Runtime `pi`: `pi -p <QUERY>` (default). */
+/** Percorso assoluto dello script `agente-ai.sh` (in `scripts/` accanto a questo modulo). */
+const AGENTE_AI_SCRIPT = new URL("./scripts/agente-ai.sh", import.meta.url).pathname;
+
+/** Runtime `pi`: `pi -p <QUERY>`. */
 export const piRuntime: AgentRuntime = {
 	type: "pi",
 	bin: "pi",
@@ -25,13 +28,32 @@ export const opencodeRuntime: AgentRuntime = {
 	},
 };
 
+/**
+ * Runtime `agente-ai`: `scripts/agente-ai.sh "<QUERY>"` (default).
+ * Client CLI stateless per API compatibili OpenAI; endpoint/modello/key
+ * configurabili via env (`OPENAI_BASE_URL`, `OPENAI_MODEL`, `OPENAI_API_KEY`),
+ * oppure per task con `model` (flag `-m`) ed `extraArgs`.
+ */
+export const agenteAiRuntime: AgentRuntime = {
+	type: "agente-ai",
+	bin: AGENTE_AI_SCRIPT,
+	buildArgs(prompt: string, cfg: PiAgentConfig): string[] {
+		const args: string[] = [];
+		if (cfg.model) args.push("-m", cfg.model);
+		args.push(prompt);
+		args.push(...(cfg.extraArgs ?? []));
+		return args;
+	},
+};
+
 /** Mappa dei runtime predefiniti. */
 export const runtimes: Record<PiRuntime, AgentRuntime> = {
+	"agente-ai": agenteAiRuntime,
 	pi: piRuntime,
 	opencode: opencodeRuntime,
 };
 
-/** Recupera il runtime per un tipo, con fallback su `pi`. */
+/** Recupera il runtime per un tipo, con fallback su `agente-ai`. */
 export function resolveRuntime(runtime?: PiRuntime): AgentRuntime {
-	return runtime ? runtimes[runtime] : piRuntime;
+	return runtime ? runtimes[runtime] : agenteAiRuntime;
 }

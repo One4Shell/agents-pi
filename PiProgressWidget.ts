@@ -331,7 +331,7 @@ export class PiProgressWidget {
 					const eta = Math.max(0, expected - (Date.now() - t.startedAt));
 					segs.push({ text: `eta~${fmtClock(eta)}`, color: "dim" });
 				}
-				const rt = t.runtime ?? "pi";
+				const rt = t.runtime ?? "agente-ai";
 				segs.push({ text: t.model ? `${rt}·${t.model}` : rt, color: "muted" });
 				if (t.state === "retry") segs.push({ text: "2/2", color: "warning" });
 			}

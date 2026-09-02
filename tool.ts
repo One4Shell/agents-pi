@@ -1,5 +1,5 @@
 // Tool LLM-callable "agents_run": rende la libreria utilizzabile dal modello.
-// Il modello può chiedere l'esecuzione di 1..8 istanze agente (pi/opencode),
+// Il modello può chiedere l'esecuzione di 1..8 istanze agente (agente-ai/pi/opencode),
 // in parallelo secondo `maxConcurrent`, con progressi in streaming (onUpdate),
 // widget htop (solo TUI), cancellazione via signal e output pulito per task.
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -31,9 +31,9 @@ const TaskItem = Type.Object({
 	label: Type.Optional(Type.String({ description: "Short task name shown in progress and results" })),
 	prompt: Type.String({ description: "Prompt/query to send to this agent instance" }),
 	runtime: Type.Optional(
-		StringEnum(["pi", "opencode"] as const, { description: 'CLI runtime for this task (default "pi")' }),
+		StringEnum(["agente-ai", "pi", "opencode"] as const, { description: 'CLI runtime for this task (default "agente-ai")' }),
 	),
-	model: Type.Optional(Type.String({ description: "Specific model (pi runtime only, --model flag)" })),
+	model: Type.Optional(Type.String({ description: "Specific model (--model flag for pi, -m for agente-ai)" })),
 });
 
 const AgentsRunParams = Type.Object({
@@ -97,11 +97,11 @@ export function registerAgentsTool(pi: ExtensionAPI): void {
 		name: "agents_run",
 		label: "Agents run",
 		description:
-			"Run one or more agent instances with isolated context via the pi or opencode CLI. " +
+			"Run one or more agent instances with isolated context via the agente-ai, pi or opencode CLI. " +
 			"Each task runs its own process with the given prompt; tasks execute in parallel limited by maxConcurrent. " +
 			`Returns the cleaned output of every task. Max ${MAX_TASKS} tasks, max ${MAX_CONCURRENT} concurrent. ` +
 			"Use it to parallelize independent queries, delegate isolated subtasks, or compare multiple answers.",
-		promptSnippet: "Run one or more agent instances (pi/opencode CLI) with isolated contexts, in parallel or one at a time",
+		promptSnippet: "Run one or more agent instances (agente-ai/pi/opencode CLI) with isolated contexts, in parallel or one at a time",
 		promptGuidelines: [
 			"Use agents_run when several independent agent queries can run at once, instead of issuing them one by one.",
 		],
@@ -181,7 +181,7 @@ export function registerAgentsTool(pi: ExtensionAPI): void {
 				theme.fg("accent", `${tasks.length} task${tasks.length === 1 ? "" : "s"}`);
 			for (const t of tasks.slice(0, 3)) {
 				const name = t.label?.trim() || (t.prompt.length > 40 ? `${t.prompt.slice(0, 40)}...` : t.prompt);
-				text += `\n  ${theme.fg("accent", name)} ${theme.fg("dim", `[${t.runtime ?? "pi"}]`)}`;
+				text += `\n  ${theme.fg("accent", name)} ${theme.fg("dim", `[${t.runtime ?? "agente-ai"}]`)}`;
 			}
 			if (tasks.length > 3) text += `\n  ${theme.fg("muted", `... +${tasks.length - 3} more`)}`;
 			return new Text(text, 0, 0);

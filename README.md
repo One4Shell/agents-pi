@@ -1,8 +1,10 @@
 # agents — libreria per istanze di agente in parallelo
 
 Libreria riutilizzabile (estensione per **pi coding agent**) che avvia più istanze
-di agente (`pi` / `opencode`) tramite CLI, singolarmente o in parallelo, con un
-widget di progresso a barre in stile htop.
+di agente (`agente-ai` / `pi` / `opencode`) tramite CLI, singolarmente o in
+parallelo, con un widget di progresso a barre in stile htop. Il runtime di
+default è **`agente-ai`** (script `scripts/agente-ai.sh`, client stateless per
+API compatibili OpenAI).
 
 Espone le classi `PiAgent`, `PiJob` e `PiProgressWidget`, insieme a runtime e
 utilità di supporto, importabili da altre estensioni o usate nei tuoi flussi di
@@ -52,7 +54,7 @@ Esempio di chiamata che il modello può fare:
 ## Comando demo
 
 `index.ts` registra il comando `/demo-agent`. Chiede un prompt all'utente, lancia
-3 istanze di `pi` in parallelo e mostra:
+3 istanze col runtime di default (`agente-ai`) in parallelo e mostra:
 
 - notifiche di riepilogo (`N ok · M errore in <tempo>`);
 - l'anteprima dell'output di ogni istanza;
@@ -70,8 +72,11 @@ estensioni:
 e ricaricare con `/reload`.
 
 La libreria usa solo i **tipi** di `@earendil-works/pi-coding-agent` (import
-`type`), quindi non richiede installazione di runtime aggiuntivi: si appoggia ai
-binari `pi` e `opencode` presenti nel PATH.
+`type`), quindi non richiede installazione di runtime aggiuntivi: si appoggia
+allo script `scripts/agente-ai.sh` (richiede `curl` e `jq`), ai binari `pi` e
+`opencode` presenti nel PATH. Il runtime `agente-ai` si configura via env:
+`OPENAI_BASE_URL` (default `http://localhost:1234/v1`), `OPENAI_MODEL`
+(default `gemma-4-12b-it`), `OPENAI_API_KEY`.
 
 ## Quick start
 
@@ -101,15 +106,15 @@ widget.stop();
 
 #### `PiRuntime`
 ```ts
-"pi" | "opencode"
+"pi" | "opencode" | "agente-ai"
 ```
 
 #### `PiAgentConfig`
 | Campo        | Tipo      | Descrizione                                            |
 |--------------|-----------|--------------------------------------------------------|
 | `prompt`     | `string`  | Prompt/query da inviare all'agente.                    |
-| `runtime`    | `PiRuntime` | Runtime da usare (default `"pi"`).                   |
-| `model`      | `string`  | Modello specifico (solo runtime `pi`, flag `--model`). |
+| `runtime`    | `PiRuntime` | Runtime da usare (default `"agente-ai"`).            |
+| `model`      | `string`  | Modello specifico (`--model` per `pi`, `-m` per `agente-ai`). |
 | `extraArgs`  | `string[]`| Argomenti aggiuntivi da accodare al comando.           |
 
 #### `PiJobSpec`
@@ -120,7 +125,7 @@ widget.stop();
 #### `PiAgentMeta`
 | Campo     | Tipo       | Descrizione                                            |
 |-----------|------------|--------------------------------------------------------|
-| `runtime` | `PiRuntime`| Runtime dell'istanza (badge `pi`/`opencode` nel widget).|
+| `runtime` | `PiRuntime`| Runtime dell'istanza (badge `agente-ai`/`pi`/`opencode` nel widget).|
 | `model`   | `string`   | Modello specifico, mostrato accanto al runtime.        |
 | `prompt`  | `string`   | Prompt del task, mostrato in anteprima se c'è spazio.  |
 
@@ -145,7 +150,7 @@ widget.stop();
 ### Classi
 
 #### `PiAgent`
-Singola istanza di un agente (`pi` / `opencode`). Esegue il processo in modo
+Singola istanza di un agente (`agente-ai` / `pi` / `opencode`). Esegue il processo in modo
 isolato e restituisce il risultato pulito.
 
 - `run(signal?): Promise<PiAgentResult>` — esegue l'istanza e attende il risultato.
@@ -187,7 +192,8 @@ htop). Si attiva al primo `register()` e si rimuove con `stop()`.
 - `failedLabels(): string` — etichette degli agenti falliti, separate da ", ".
 - `elapsedMs(): number`.
 
-**Nota sul progresso:** `pi -p` e `opencode run` sono processi a "scatola nera":
+**Nota sul progresso:** `agente-ai.sh`, `pi -p` e `opencode run` sono processi a
+"scatola nera":
 non esiste un segnale reale di avanzamento in %. La barra del singolo agente è
 quindi *stimata* dal tempo trascorso rispetto alla durata media dei job completati.
 
@@ -201,7 +207,7 @@ progressiva, prima sparisce il prompt, poi i metadati, poi la barra):
 
 - `eta~MM:SS` — tempo rimanente stimato (solo se ci sono job completati da cui
   calcolare la media);
-- `pi·<model>` / `opencode` — runtime e modello dell'istanza (modello solo se specificato);
+- `pi·<model>` / `agente-ai` / `opencode` — runtime e modello dell'istanza (modello solo se specificato);
 - `2/2` — indicatore di retry (secondo e ultimo tentativo);
 - `"prompt…"` — anteprima del prompt, troncata per riempire lo spazio residuo.
 
@@ -230,12 +236,17 @@ Opzioni del costruttore (`PiProgressWidgetOptions`):
 ### Runtime
 
 Definiti in `runtimes.ts`; `resolveRuntime(runtime?)` recupera il runtime con
-fallback su `pi` (valore predefinito).
+fallback su `agente-ai` (valore predefinito).
 
-| Runtime    | Comando generato                     | Note                                   |
-|------------|--------------------------------------|----------------------------------------|
-| `pi`       | `pi -p <QUERY> [--model <M>] [extra]`| Predefinito.                           |
-| `opencode` | `opencode run "<QUERY>" [extra]`     | Query racchiuso tra virgolette.        |
+| Runtime     | Comando generato                                  | Note                                                        |
+|-------------|---------------------------------------------------|-------------------------------------------------------------|
+| `agente-ai` | `scripts/agente-ai.sh [-m <M>] "<QUERY>" [extra]` | Predefinito. API OpenAI-compatibili; config via `OPENAI_BASE_URL`, `OPENAI_MODEL`, `OPENAI_API_KEY`. |
+| `pi`        | `pi -p <QUERY> [--model <M>] [extra]`             |                                                             |
+| `opencode`  | `opencode run "<QUERY>" [extra]`                  | Query racchiuso tra virgolette.                             |
+
+Il runtime `agente-ai` accetta flag utili negli `extraArgs`, ad esempio
+`-u <BASE_URL>` (endpoint), `--stream`, `-t <TEMPERATURE>`, `--max-tokens <N>`,
+`--param chiave=valore` (vedi `scripts/agente-ai.sh --help`).
 
 ### Utilità
 
@@ -288,7 +299,7 @@ try {
 - Classi: `PiAgent`, `PiJob`, `PiProgressWidget`.
 - Tipi: `PiAgentConfig`, `PiAgentMeta`, `PiAgentResult`, `PiAgentState`, `PiAgentStateListener`,
   `PiJobSpec`, `PiJobOptions`, `PiProgressWidgetOptions`, `PiRuntime`.
-- Runtime: `piRuntime`, `opencodeRuntime`, `runtimes`, `resolveRuntime`, `AgentRuntime`.
+- Runtime: `agenteAiRuntime`, `piRuntime`, `opencodeRuntime`, `runtimes`, `resolveRuntime`, `AgentRuntime`.
 - Utilità: `stripAnsi`, `cleanModelOutput`, `cleanMultilineOutput`, `fmtSec`,
   `fmtClock`.
 

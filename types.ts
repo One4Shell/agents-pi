@@ -1,19 +1,20 @@
-/** Stati osservabili di un'istanza agente (un processo `pi` / `opencode`). */
+/** Stati osservabili di un'istanza agente (un processo `pi` / `opencode` / `agente-ai.sh`). */
 export type PiAgentState = "queued" | "running" | "retry" | "done" | "failed";
 
 /** Runtime disponibili per avviare un'istanza. */
-export type PiRuntime = "pi" | "opencode";
+export type PiRuntime = "pi" | "opencode" | "agente-ai";
 
 /** Configurazione di un singolo agente. */
 export interface PiAgentConfig {
 	/** Prompt/query da inviare all'agente. */
 	prompt: string;
 	/**
-	 * Runtime da usare: `"pi"` (default, `pi -p <QUERY>`) oppure `"opencode"`
-	 * (`opencode run "<QUERY>"`). Se non specificato usa `pi`.
+	 * Runtime da usare: `"agente-ai"` (default, `scripts/agente-ai.sh "<QUERY>"`),
+	 * `"pi"` (`pi -p <QUERY>`) oppure `"opencode"` (`opencode run "<QUERY>"`).
+	 * Se non specificato usa `agente-ai`.
 	 */
 	runtime?: PiRuntime;
-	/** Modello specifico (solo runtime `pi`, flag `--model <MODEL>`). */
+	/** Modello specifico (flag `--model <MODEL>` per `pi`, `-m <MODEL>` per `agente-ai`). */
 	model?: string;
 	/** Argomenti aggiuntivi da accodare al comando. */
 	extraArgs?: string[];
@@ -58,7 +59,7 @@ export interface PiAgentResult {
 /** Definizione di un runtime: come costruire gli argomenti CLI per una query. */
 export interface AgentRuntime {
 	type: PiRuntime;
-	/** Nome del binario (es. "pi", "opencode"). */
+	/** Nome del binario (es. "pi", "opencode") o percorso assoluto dello script. */
 	bin: string;
 	/** Costruisce gli argomenti per `pi.exec(bin, args)`. */
 	buildArgs(prompt: string, cfg: PiAgentConfig): string[];

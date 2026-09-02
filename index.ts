@@ -4,9 +4,9 @@ import { PiProgressWidget } from "./PiProgressWidget.ts";
 import { registerAgentsTool } from "./tool.ts";
 import { fmtSec } from "./utils.ts";
 
-// Libreria riutilizzabile per avviare istanze di "pi coding agent" (e runtime
-// alternativi come opencode) tramite la CLI, singolarmente o in parallelo,
-// con un widget di progresso a barre.
+// Libreria riutilizzabile per avviare istanze di agente CLI (runtime di default
+// `agente-ai.sh`, con alternative come pi e opencode) tramite la CLI,
+// singolarmente o in parallelo, con un widget di progresso a barre.
 //
 // Uso rapido (dentro eventi/comandi di un'estensione):
 //   import { PiAgent, PiJob, PiProgressWidget } from "./index.ts";
@@ -22,7 +22,7 @@ export default function (pi: ExtensionAPI) {
 	// Tool LLM-callable: espone la libreria al modello come `agents_run`.
 	registerAgentsTool(pi);
 
-	// Comando demo: avvia alcune istanze di agente (pi/opencode) in parallelo.
+	// Comando demo: avvia alcune istanze di agente (runtime di default) in parallelo.
 	// La libreria espone anche le classi riutilizzabili (importabili da altre
 	// estensioni o usate nei tuoi flussi).
 	pi.registerCommand("demo-agent", {
@@ -33,9 +33,9 @@ export default function (pi: ExtensionAPI) {
 
 			const widget = new PiProgressWidget(ctx.ui, { title: "DEMO", subtitle: "istanze demo" });
 			const job = new PiJob(pi, [
-				{ id: "a1", label: "analisi", config: { prompt, runtime: "pi" } },
-				{ id: "a2", label: "traduci", config: { prompt, runtime: "pi" } },
-				{ id: "a3", label: "altra-task", config: { prompt, runtime: "pi" } }, //runtime: "opencode",
+				{ id: "a1", label: "analisi", config: { prompt } },
+				{ id: "a2", label: "traduci", config: { prompt } },
+				{ id: "a3", label: "altra-task", config: { prompt } }, // runtime di default: agente-ai
 			], { maxConcurrent: 3, widget });
 
 			try {
@@ -74,7 +74,7 @@ export type { PiJobOptions } from "./PiJob.ts";
 export { PiProgressWidget } from "./PiProgressWidget.ts";
 export type { PiProgressWidgetOptions } from "./PiProgressWidget.ts";
 
-export { piRuntime, opencodeRuntime, runtimes, resolveRuntime } from "./runtimes.ts";
+export { agenteAiRuntime, piRuntime, opencodeRuntime, runtimes, resolveRuntime } from "./runtimes.ts";
 export type { AgentRuntime, PiAgentConfig, PiAgentMeta, PiAgentResult, PiAgentState, PiJobSpec, PiRuntime } from "./types.ts";
 
 // ── Utilità di supporto ─────────────────────────────────────────────────────
