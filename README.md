@@ -46,7 +46,7 @@ Esempio di chiamata che il modello può fare:
   `### [label] failed` con l'errore; gli output riusciti sono puliti
   (`cleanMultilineOutput`) e troncati a 4 KB per task (con avviso).
 - Il testo finale riporta l'header `N/M succeeded · K failed · <tempo>`.
-- Rendering compatto in stile subagent: `✓/✗/⏳` per task, durata, espansione
+- Rendering compatto in stile subagent: `✓/✗/⏸` per task, durata, espansione
   con Ctrl+O.
 
 ## Comando demo
@@ -117,6 +117,13 @@ widget.stop();
 { id: string; label: string; config: PiAgentConfig }
 ```
 
+#### `PiAgentMeta`
+| Campo     | Tipo       | Descrizione                                            |
+|-----------|------------|--------------------------------------------------------|
+| `runtime` | `PiRuntime`| Runtime dell'istanza (badge `pi`/`opencode` nel widget).|
+| `model`   | `string`   | Modello specifico, mostrato accanto al runtime.        |
+| `prompt`  | `string`   | Prompt del task, mostrato in anteprima se c'è spazio.  |
+
 #### `PiAgentResult`
 | Campo        | Tipo          | Descrizione                                       |
 |--------------|---------------|---------------------------------------------------|
@@ -168,7 +175,8 @@ concorrenza**.
 Widget reattivo con barre di progressione, tabella agenti e status bar (stile
 htop). Si attiva al primo `register()` e si rimuove con `stop()`.
 
-- `register(id, label)` — registra un agente (in coda) e attiva il widget.
+- `register(id, label, meta?)` — registra un agente (in coda) con metadati
+  opzionali (`PiAgentMeta`: runtime, model, prompt) e attiva il widget.
 - `update(id, state)` — aggiorna lo stato di un agente.
 - `reset()` — svuota gli agenti registrati.
 - `setMaxConcurrent(n)` — imposta il limite di concorrenza del meter LOAD
@@ -182,6 +190,33 @@ htop). Si attiva al primo `register()` e si rimuove con `stop()`.
 **Nota sul progresso:** `pi -p` e `opencode run` sono processi a "scatola nera":
 non esiste un segnale reale di avanzamento in %. La barra del singolo agente è
 quindi *stimata* dal tempo trascorso rispetto alla durata media dei job completati.
+
+**Riga agente adattiva:** per gli agenti in esecuzione la barra è accompagnata da
+informazioni extra mostrate in base alla larghezza disponibile (degradazione
+progressiva, prima sparisce il prompt, poi i metadati, poi la barra):
+
+```
+ NN ▸ label… RUN MM:SS ⠋ ▐████░░░░░░▌ 42% ⚡ eta~01:20 · pi·glm-4.7 · 2/2 · "prompt…"
+```
+
+- `eta~MM:SS` — tempo rimanente stimato (solo se ci sono job completati da cui
+  calcolare la media);
+- `pi·<model>` / `opencode` — runtime e modello dell'istanza (modello solo se specificato);
+- `2/2` — indicatore di retry (secondo e ultimo tentativo);
+- `"prompt…"` — anteprima del prompt, troncata per riempire lo spazio residuo.
+
+**Righe in coda (queued):** stesso layout delle righe attive, con colonne
+allineate e UI dedicata all'attesa:
+
+```
+ NN ▸ label… QUE 00:12 ⏸ ▐▒▒▒▒▒▒▒▒▒▒▌   -- · queue #2 · pi·glm-4.7 · "prompt…"
+```
+
+- badge `QUE` + clock di attesa dall'avvio del job + `⏸`;
+- barra "vuota" `▒` con ` -- ` al posto della percentuale;
+- `queue #N` — posizione nella coda (ordine di avvio).
+
+Soglie indicative (larghezza widget): barra ≥ 48, metadati ≥ 62, prompt ≥ 84.
 
 Opzioni del costruttore (`PiProgressWidgetOptions`):
 
@@ -251,7 +286,7 @@ try {
 `index.ts` espone:
 
 - Classi: `PiAgent`, `PiJob`, `PiProgressWidget`.
-- Tipi: `PiAgentConfig`, `PiAgentResult`, `PiAgentState`, `PiAgentStateListener`,
+- Tipi: `PiAgentConfig`, `PiAgentMeta`, `PiAgentResult`, `PiAgentState`, `PiAgentStateListener`,
   `PiJobSpec`, `PiJobOptions`, `PiProgressWidgetOptions`, `PiRuntime`.
 - Runtime: `piRuntime`, `opencodeRuntime`, `runtimes`, `resolveRuntime`, `AgentRuntime`.
 - Utilità: `stripAnsi`, `cleanModelOutput`, `cleanMultilineOutput`, `fmtSec`,

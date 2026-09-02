@@ -75,7 +75,7 @@ export { PiProgressWidget } from "./PiProgressWidget.ts";
 export type { PiProgressWidgetOptions } from "./PiProgressWidget.ts";
 
 export { piRuntime, opencodeRuntime, runtimes, resolveRuntime } from "./runtimes.ts";
-export type { AgentRuntime, PiAgentConfig, PiAgentResult, PiAgentState, PiJobSpec, PiRuntime } from "./types.ts";
+export type { AgentRuntime, PiAgentConfig, PiAgentMeta, PiAgentResult, PiAgentState, PiJobSpec, PiRuntime } from "./types.ts";
 
 // ── Utilità di supporto ─────────────────────────────────────────────────────
 export { stripAnsi, cleanModelOutput, cleanMultilineOutput, parseJsonOutput, fmtSec, fmtClock } from "./utils.ts";

@@ -58,7 +58,13 @@ export class PiJob {
 			});
 			return agent;
 		});
-		for (const agent of this.agents) this.widget?.register(agent.id, agent.label);
+		for (const agent of this.agents) {
+			this.widget?.register(agent.id, agent.label, {
+				runtime: agent.runtime,
+				model: agent.config.model,
+				prompt: agent.config.prompt,
+			});
+		}
 
 		const results: PiAgentResult[] = new Array(this.specs.length);
 		let next = 0;

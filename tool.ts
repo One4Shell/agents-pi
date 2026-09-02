@@ -197,7 +197,7 @@ export function registerAgentsTool(pi: ExtensionAPI): void {
 			const running = details.results.filter((r) => isRunningState(r.state)).length;
 			const done = details.results.filter((r) => r.state === "done").length;
 			const failedCount = details.results.length - done - running;
-			const icon = running > 0 ? theme.fg("warning", "⏳") : failedCount > 0 ? theme.fg("warning", "◐") : theme.fg("success", "✓");
+			const icon = running > 0 ? theme.fg("warning", "⏸") : failedCount > 0 ? theme.fg("warning", "◐") : theme.fg("success", "✓");
 			const status = details.cancelled
 				? `cancelled, ${done}/${details.results.length} succeeded`
 				: running > 0
@@ -207,7 +207,7 @@ export function registerAgentsTool(pi: ExtensionAPI): void {
 			let text = `${icon} ${theme.fg("toolTitle", theme.bold("agents_run "))}${theme.fg("accent", status)}`;
 			for (const r of details.results) {
 				const rIcon = isRunningState(r.state)
-					? theme.fg("warning", "⏳")
+					? theme.fg("warning", "⏸")
 					: r.state === "done"
 						? theme.fg("success", "✓")
 						: theme.fg("error", "✗");

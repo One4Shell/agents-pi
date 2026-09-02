@@ -26,6 +26,16 @@ export interface PiJobSpec {
 	config: PiAgentConfig;
 }
 
+/**
+ * Metadati opzionali di un'istanza agente mostrati dal widget di progresso
+ * accanto alla barra (runtime, modello, anteprima prompt).
+ */
+export interface PiAgentMeta {
+	runtime?: PiRuntime;
+	model?: string;
+	prompt?: string;
+}
+
 /** Risultato di un'istanza agente al termine dell'esecuzione. */
 export interface PiAgentResult {
 	id: string;
