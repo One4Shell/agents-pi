@@ -43,8 +43,8 @@ BACKOFF_DELAY="${OPENAI_BACKOFF_DELAY:-3}"  # secondi di attesa base tra un tent
 # identiche e concorrenti sullo stesso endpoint, sfalsate di pochi ms; la prima
 # che risponde con un contenuto valido vince e le altre vengono interrotte.
 RACE_COUNT=1                            # 1 = disattivata; >1 = richieste concorrenti
-RACE_PARALLEL_DEFAULT="${OPENAI_RACE_PARALLEL:-5}"  # default con --race senza valore
-RACE_DELAY_MS="${OPENAI_RACE_DELAY_MS:-20}"         # pausa tra i lanci (millisecondi)
+RACE_PARALLEL_DEFAULT="${OPENAI_RACE_PARALLEL:-3}"  # default con --race senza valore
+RACE_DELAY_MS="${OPENAI_RACE_DELAY_MS:-50}"         # pausa tra i lanci (millisecondi)
 
 SCRIPT_NAME="$(basename "$0")"
 
