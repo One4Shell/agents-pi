@@ -35,8 +35,16 @@ export default function (pi: ExtensionAPI) {
 			const job = new PiJob(pi, [
 				{ id: "a1", label: "analisi", config: { prompt } },
 				{ id: "a2", label: "traduci", config: { prompt } },
-				{ id: "a3", label: "altra-task", config: { prompt } }, // runtime di default: agente-ai
-			], { maxConcurrent: 3, widget });
+				{ id: "a3", label: "analisi", config: { prompt } },
+				{ id: "a4", label: "traduci", config: { prompt } },
+				{ id: "a5", label: "altra-task", config: { prompt } },
+				{ id: "a6", label: "altra-task", config: { prompt } },
+				{ id: "a7", label: "altra-task", config: { prompt } },
+				{ id: "a8", label: "altra-task", config: { prompt } },
+				{ id: "a9", label: "altra-task", config: { prompt } },
+				{ id: "a10", label: "altra-task", config: { prompt } }
+				// runtime di default: agente-ai
+			], { maxConcurrent: 10, widget });
 
 			try {
 				const results = await job.runAll();
