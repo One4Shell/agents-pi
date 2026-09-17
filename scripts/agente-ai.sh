@@ -16,8 +16,8 @@ set -uo pipefail
 # ----------------------------------------------------------------------------
 # Valori di default (sovrascrivibili da variabili d'ambiente o flag CLI)
 # ----------------------------------------------------------------------------
-MODEL="${OPENAI_MODEL:-auto}"
-BASE_URL="${OPENAI_BASE_URL:-http://192.168.8.217:1337/v1}"
+MODEL="${OPENAI_MODEL:-free-stack}"
+BASE_URL="${OPENAI_BASE_URL:-http://localhost:1234/v1}"
 API_KEY="${OPENAI_API_KEY:-password}"
 SYSTEM_PROMPT=""
 STREAM=false
@@ -36,14 +36,22 @@ EXTRA_PARAMS=()
 
 # Robustezza della richiesta
 RETRIES="${OPENAI_RETRIES:-3}"     # tentativi EXTRA oltre il primo (0 = nessun retry)
-TIMEOUT="${OPENAI_TIMEOUT:-800}"      # timeout totale in secondi (curl --max-time); vuoto = nessun limite
+TIMEOUT="${OPENAI_TIMEOUT:-50}"      # timeout totale in secondi (curl --max-time); vuoto = nessun limite
 BACKOFF_DELAY="${OPENAI_BACKOFF_DELAY:-3}"  # secondi di attesa base tra un tentativo e il successivo
+
+# Proxy a rotazione (anti-ban). Fonti accumulabili: env var AGENTE_AI_PROXIES
+# (elenco separato da spazi/virgole), flag -x/--proxy ripetibile e --proxy-file.
+# Ad ogni richiesta/tentativo ne viene scelto uno a caso, evitando di ripescare
+# l'ultimo già usato. Valori passati tal quali a curl -x.
+PROXIES=()
+PROXY=""                # proxy selezionato per la richiesta corrente
+LAST_PROXY=""           # ultimo proxy usato (escluso dal pick successivo)
 
 # Modalità "race" (opzionale, disattivata di default): lancia più richieste
 # identiche e concorrenti sullo stesso endpoint, sfalsate di pochi ms; la prima
 # che risponde con un contenuto valido vince e le altre vengono interrotte.
 RACE_COUNT=1                            # 1 = disattivata; >1 = richieste concorrenti
-RACE_PARALLEL_DEFAULT="${OPENAI_RACE_PARALLEL:-3}"  # default con --race senza valore
+RACE_PARALLEL_DEFAULT="${OPENAI_RACE_PARALLEL:-1}"  # default con --race senza valore
 RACE_DELAY_MS="${OPENAI_RACE_DELAY_MS:-50}"         # pausa tra i lanci (millisecondi)
 
 SCRIPT_NAME="$(basename "$0")"
@@ -78,6 +86,18 @@ Opzioni di connessione:
                              Non compatibile con --stream.
       --race-delay <ms>     Pausa tra il lancio di ogni richiesta della race
                              (default: \$OPENAI_RACE_DELAY_MS o 20 ms)
+  -x, --proxy <proxy>       Aggiunge un proxy alla lista di rotazione.
+                             Ripetibile per definire più proxy. Ad ogni
+                             richiesta/tentativo ne viene scelto uno a caso,
+                             evitando di ripescare l'ultimo già usato, per
+                             ridurre il rischio di ban. Accetta sia
+                             "host:porta" sia "http://...", "socks5://...",
+                             con o senza credenziali (passato a curl -x).
+      --proxy-file <file>   Legge la lista di proxy da un file, uno per riga
+                             (righe vuote e commenti '#' ignorati). Ripetibile
+                             e accumulabile con -x/--proxy e con l'env var.
+                             Variabile d'ambiente: AGENTE_AI_PROXIES = elenco
+                             separato da spazi o virgole.
 
 Opzioni di generazione:
   -t, --temperature <n>    Temperatura di campionamento (es. 0.7)
@@ -175,6 +195,12 @@ parse_args() {
             -u|--url)
                 [ -n "${2:-}" ] || { echo "Errore: '$1' richiede un argomento." >&2; exit 1; }
                 BASE_URL="${2%/}"; shift 2 ;;   # rimuove eventuale slash finale
+            -x|--proxy)
+                [ -n "${2:-}" ] || { echo "Errore: '$1' richiede un argomento." >&2; exit 1; }
+                add_proxy_list "$2"; shift 2 ;;
+            --proxy-file)
+                [ -n "${2:-}" ] || { echo "Errore: '$1' richiede un argomento (percorso di un file)." >&2; exit 1; }
+                load_proxy_file "$2"; shift 2 ;;
             -k|--key)
                 [ -n "${2:-}" ] || { echo "Errore: '$1' richiede un argomento." >&2; exit 1; }
                 API_KEY="$2"; shift 2 ;;
@@ -382,6 +408,79 @@ retry_wait() {
 }
 
 # ----------------------------------------------------------------------------
+# Funzioni per la lista di proxy a rotazione
+# ----------------------------------------------------------------------------
+
+# Aggiunge ad PROXIES tutti i proxy di un elenco, accettando come separatori
+# spazi, virgole o a-capo. Scarta le voci vuote e i duplicati.
+add_proxy_list() {
+    local raw="$1" p x already
+    local IFS=$'\n'
+    for p in $(printf '%s' "$raw" | tr ',[:space:]' '\n' | sed '/^[[:space:]]*$/d'); do
+        already=false
+        for x in "${PROXIES[@]:-}"; do
+            [ "$x" = "$p" ] && already=true && break
+        done
+        if [ "$already" = false ]; then
+            PROXIES+=("$p")
+        fi
+    done
+}
+
+# Legge una lista di proxy da un file, uno per riga. Le righe vuote e i
+# commenti che iniziano con '#' vengono ignorati. Errore se il file non
+# esiste o non è leggibile.
+load_proxy_file() {
+    local path="$1"
+    if [ ! -r "$path" ]; then
+        echo "Errore: file proxy non leggibile: '$path'." >&2
+        exit 1
+    fi
+    local p
+    while IFS= read -r p; do
+        p="${p%%#*}"    # toglie eventuale commento in coda alla riga
+        add_proxy_list "$p"
+    done <"$path"
+}
+
+# Carica i proxy dalla variabile d'ambiente AGENTE_AI_PROXIES (se impostata).
+collect_proxies() {
+    if [ -n "${AGENTE_AI_PROXIES:-}" ]; then
+        add_proxy_list "$AGENTE_AI_PROXIES"
+    fi
+    dbg "Proxy configurati: ${#PROXIES[@]}"
+}
+
+# Sceglie un proxy a caso tra PROXIES escludendo quelli presenti in $1 (un
+# set pipe-delimited, es. "|p1|p2|"; può essere vuoto o assente). Il risultato
+# è salvato nella variabile globale PROXY. Se tutti i proxy sono esclusi,
+# ripesca liberamente tra tutti.
+pick_proxy_excluding() {
+    local avoid="$1" n="${#PROXIES[@]}"
+    PROXY=""
+    [ "$n" -eq 0 ] && return 0
+
+    local pool=() p
+    for p in "${PROXIES[@]}"; do
+        case "$avoid" in
+            *"|${p}|"*) ;;
+            *) pool+=("$p") ;;
+        esac
+    done
+    [ "${#pool[@]}" -eq 0 ] && pool=("${PROXIES[@]}")
+
+    PROXY="${pool[$((RANDOM % ${#pool[@]}))]}"
+}
+
+# Sceglie un proxy casuale evitando l'ultimo già usato (LAST_PROXY), così un
+# proxy non funzionante non viene ripescato subito dal retry successivo.
+pick_proxy() {
+    local avoid=""
+    [ -n "$LAST_PROXY" ] && avoid="|${LAST_PROXY}|"
+    pick_proxy_excluding "$avoid"
+}
+
+# ----------------------------------------------------------------------------
 # Ritorna 0 (vero) se un messaggio d'errore del server indica una condizione
 # transitoria (server sovraccarico o rate limit) per cui vale la pena
 # ritentare la richiesta; 1 altrimenti.
@@ -498,6 +597,8 @@ parallel_race_round() {
     local -a pids dirs done_map
     local finished winner_found
     local worker_http worker_msg worker_body worker_verdict worker_bad2xx
+    local round_avoid="|"   # proxy già assegnati ai worker di questo round
+    [ -n "$LAST_PROXY" ] && round_avoid="|${LAST_PROXY}|"
 
     race_winner=0
     race_winner_content=""
@@ -523,10 +624,14 @@ parallel_race_round() {
     for ((i=0; i<RACE_COUNT; i++)); do
         wdir="$tmpdir/$i"
         mkdir -p "$wdir"
+        pick_proxy_excluding "$round_avoid"
+        round_avoid+="${PROXY}|"
+        dbg "  worker $((i + 1)): proxy=${PROXY:-nessuno}"
         (
             curl -sS \
                 --connect-timeout 10 \
                 ${TIMEOUT:+--max-time "${TIMEOUT}"} \
+                ${PROXY:+-x "${PROXY}"} \
                 -X POST "${BASE_URL}/chat/completions" \
                 -H "Content-Type: application/json" \
                 ${API_KEY:+-H "Authorization: Bearer ${API_KEY}"} \
@@ -542,6 +647,7 @@ parallel_race_round() {
         # pausa tra i lanci: "a distanza di pochi ms"
         [ "$((i + 1))" -lt "$RACE_COUNT" ] && sleep "$delay_s"
     done
+    LAST_PROXY="$PROXY"
 
     done_map=()
     for ((i=0; i<RACE_COUNT; i++)); do done_map[$i]=0; done
@@ -667,9 +773,13 @@ call_non_streaming() {
     fi
 
     for ((attempt=1; attempt<=RETRIES+1; attempt++)); do
+        pick_proxy
+        LAST_PROXY="$PROXY"
+        dbg "Tentativo ${attempt}: proxy=${PROXY:-nessuno}"
         response="$(curl -sS -w '\n%{http_code}' \
             --connect-timeout 10 \
             ${TIMEOUT:+--max-time "${TIMEOUT}"} \
+            ${PROXY:+-x "${PROXY}"} \
             -X POST "${BASE_URL}/chat/completions" \
             -H "Content-Type: application/json" \
             ${API_KEY:+-H "Authorization: Bearer ${API_KEY}"} \
@@ -760,12 +870,17 @@ call_streaming() {
         http_code=""
         plain_body=""
 
+        pick_proxy
+        LAST_PROXY="$PROXY"
+        dbg "Tentativo ${attempt}: proxy=${PROXY:-nessuno}"
+
         fifo="$(mktemp -u)"
         mkfifo "$fifo"
 
         curl -sS -N \
             --connect-timeout 10 \
             ${TIMEOUT:+--max-time "${TIMEOUT}"} \
+            ${PROXY:+-x "${PROXY}"} \
             -X POST "${BASE_URL}/chat/completions" \
             -H "Content-Type: application/json" \
             -H "Accept: text/event-stream" \
@@ -929,6 +1044,7 @@ call_streaming() {
 main() {
     check_dependencies
     parse_args "$@"
+    collect_proxies
     resolve_prompt
 
     if [ "$STREAM" = true ] && [ "$RACE_COUNT" -gt 1 ]; then
@@ -958,4 +1074,5 @@ main() {
     fi
 }
 
+# notify-send "AgenteAI - Ready" "Inizializzo agente AI"
 main "$@"
